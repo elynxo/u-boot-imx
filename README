@@ -1,3 +1,22 @@
+ELYNXO NOTE:
+------------
+This repository has been cloned from https://git.phytec.de/u-boot-imx.
+For our particular need, we have changed u-boot to support dual boot (on imx8).
+we started from: tag name: v2021.04_2.2.0-phy13 (commit: e1f89300027defc4f409a2c8d98f4dcf550947e0)
+
+Dual-boot implementation on imx8:
+This modification shows how to modify the "device", the boot partition and the rootFS partition
+to boot with uboot, depending on the information read in a partition.
+The implementation reads a flag in a file named "boot_flag.txt",
+present on [num 8] partition named "mailbox" of the [num 2] device.
+
+Changes can be seen either on the commit f3be88a48af1073e302d63b75804b1a787f63f56 of this repository
+or "inside 220724_uboot_mailbox_emmc.patch" patch file
+
+
+
+STANDARD U-BOOT README:
+-----------------------
 # SPDX-License-Identifier: GPL-2.0+
 #
 # (C) Copyright 2000 - 2013
