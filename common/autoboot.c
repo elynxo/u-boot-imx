@@ -396,7 +396,7 @@ const char *bootdelay_process(void)
 
 void autoboot_command(const char *s)
 {
-	debug("### main_loop: bootcmd=\"%s\"\n", s ? s : "<UNDEFINED>");
+	printf("### main_loop: bootcmd=\"%s\"\n", s ? s : "<UNDEFINED>");
 
 	if (s && (stored_bootdelay == -2 ||
 		 (stored_bootdelay != -1 && !abortboot(stored_bootdelay)))) {

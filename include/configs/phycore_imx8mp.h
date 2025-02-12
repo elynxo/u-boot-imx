@@ -59,9 +59,9 @@
 	"spiprobe=true\0" \
 	"emmc_dev=2\0" \
 	"sd_dev=1\0" \
-	"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0" \
-	"mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0" \
-	"mmcroot=2\0" \
+        "mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0" \
+        "mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0" \
+	"mmcroot=1\0" \
 	"mmcautodetect=yes\0" \
 	"mmcargs=setenv bootargs ${mcore_clk} console=${console},${baudrate} " \
 		"root=/dev/mmcblk${mmcdev}p${mmcroot} fsck.repair=yes rootwait rw\0" \
@@ -101,6 +101,7 @@
 			"echo WARN: Cannot load the DT; " \
 		"fi;\0 " \
 	"nfsroot=/nfs\0" \
+	"bootcmd=fatmailbox mmc 2:8;mmc dev ${mmcdev}; if mmc rescan; then env exists dofitboot || setenv dofitboot 0;run spiprobe; if run loadimage; then run mmcboot; fatmailbox mmc 2:8;else run netboot; fi;fi;\0" \
 	"netargs=setenv bootargs ${mcore_clk} console=${console},${baudrate} root=/dev/nfs ip=${nfsip} " \
 		"nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
 	"net_load_bootenv=${get_cmd} ${bootenv_addr} ${bootenv}\0" \
@@ -144,8 +145,6 @@
 		"else " \
 			"echo WARN: Cannot load the DT; " \
 		"fi;\0" \
-	"raucdev=2\0" \
-	PHYCORE_RAUC_ENV_BOOTLOGIC \
 	PHYCORE_FITIMAGE_ENV_BOOTLOGIC
 
 #ifdef CONFIG_IMX_HAB

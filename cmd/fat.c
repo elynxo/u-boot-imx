@@ -14,6 +14,8 @@
 #include <fs.h>
 #include <part.h>
 #include <asm/cache.h>
+#include <stdlib.h>
+#include <env.h>
 
 int do_fat_size(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
@@ -62,6 +64,88 @@ U_BOOT_CMD(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
+static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
+		     char *const argv[])
+{
+    char flag_str[16];
+    unsigned int boot_flag;
+    int ret,dev,part;
+    struct disk_partition mailbox_part;
+	struct blk_desc *dev_desc;
+	struct disk_partition info;
+    char *part_name = "mailbox"; // Update with the actual partition label
+///////////
+       printf("\n**************************************************\n");
+       printf("\n*                     ELYNXO                     *\n");
+       printf("\n**************************************************\n");
+       printf("\n*     UBOOT VERSION : C22-1925-AA-001_1.0.0      *\n");
+       printf("\n**************************************************\n");
+//////////
+	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
+	if (part < 0)
+		return 1;
+
+	dev = dev_desc->devnum;
+	if (fat_set_blk_dev(dev_desc, &info) != 0) {
+		printf("\n** Unable to use %s %d:%d for fatinfo **\n",
+			argv[1], dev, part);
+		return 1;
+	}
+    ret = file_fat_read("boot_flag.txt", flag_str, sizeof(flag_str));
+    if (ret >= 0) {
+        boot_flag = simple_strtoul(flag_str, NULL, 10);
+        ret = 0;
+	printf(" boot flag is : %lu\n", boot_flag);
+
+        if (boot_flag == 1) {
+            env_set("mmcdev", "2");
+            env_set("mmcpart", "1");
+            env_set("mmcroot", "2");
+	    //run_command("setenv mmcpart 1", 0);
+	    //run_command("setenv mmcroot 2;",0);
+	    printf("Booting Application1 ");
+        } else if (boot_flag == 2) {
+            //setenv("bootcmd", "run boot_b");
+            env_set("mmcdev", "2");    // boot from mmc disk amovible.
+            env_set("mmcpart", "3");
+            env_set("mmcroot", "5");
+	    //run_command("setenv mmcpart 3", 0);
+	    //run_command("setenv mmcroot 5;",0);
+	    printf("Booting Application2 ");
+        } else {
+            printf("Invalid boot flag value! Booting default.\n");
+            env_set("mmcdev", "2");
+            env_set("mmcpart", "1");
+            env_set("mmcroot", "2");
+	    //run_command("setenv mmcpart 1", 0);
+	    //run_command("setenv mmcroot 2;",0);
+	    printf("Booting Application1 ");
+        }
+
+    } else {
+        printf("Failed to read boot flag from mailbox partition\n");
+	ret = 0;
+            env_set("mmcdev", "2");
+            env_set("mmcpart", "1");
+            env_set("mmcroot", "2");
+	    //run_command("setenv mmcpart 1", 0);
+	    //run_command("setenv mmcroot 2;",0);
+	    printf("Booting Application1 ");
+    }
+
+
+	run_command("saveenv", 0);
+//	run_command("run bootcmd", 0);
+
+    return ret;
+}
+
+U_BOOT_CMD(
+	fatmailbox,	3,	1,	do_fat_mailbox,
+	"list files in a directory (default /)",
+	"<interface> [<dev[:part]>] \n"
+	"    - reads flag from 'dev' on 'interface' mailbox"
+);
 static int do_fat_fsinfo(struct cmd_tbl *cmdtp, int flag, int argc,
 			 char *const argv[])
 {
