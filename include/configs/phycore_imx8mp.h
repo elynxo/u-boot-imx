@@ -48,6 +48,7 @@
 	"bootenv_addr=0x49100000\0" \
 	"fdt_file=" CONFIG_DEFAULT_FDT_FILE "\0" \
 	"bootenv=bootenv.txt\0" \
+	"bootdelay=0\0" \
 	"mmc_load_bootenv=fatload mmc ${mmcdev}:${mmcpart} ${bootenv_addr} ${bootenv}\0" \
 	"ipaddr=192.168.3.11\0" \
 	"serverip=192.168.3.10\0" \
