@@ -74,13 +74,10 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
     char *part_name = "mailbox"; // Update with the actual partition label
-///////////
-       printf("\n**************************************************\n");
-       printf("\n*                     ELYNXO                     *\n");
-       printf("\n**************************************************\n");
-       printf("\n*     UBOOT VERSION : C22-1925-AA-001_1.0.0      *\n");
-       printf("\n**************************************************\n");
-//////////
+
+       //print custom u-boot version
+       printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.2.1\n");
+
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
 	if (part < 0)
 		return 1;
@@ -95,7 +92,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
     if (ret >= 0) {
         boot_flag = simple_strtoul(flag_str, NULL, 10);
         ret = 0;
-	printf(" boot flag is : %lu\n", boot_flag);
+	printf(" boot flag is : %lu\n\n", boot_flag);
 
         if (boot_flag == 1) {
             env_set("mmcdev", "2");
