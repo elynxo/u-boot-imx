@@ -64,20 +64,27 @@ U_BOOT_CMD(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
+#define REBOOT_MAX_ALLOWED_ON_PARTITION 1
+
 static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		     char *const argv[])
 {
-    char flag_str[16];
+    char read_str[10];
+	char data_str[10];
+	unsigned int temp_u;
     unsigned int boot_flag;
+	unsigned int reboot_counter_1;
+	unsigned int reboot_counter_2;
+	unsigned int boot_os_id;
+	loff_t size;
     int ret,dev,part;
-    struct disk_partition mailbox_part;
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
-    char *part_name = "mailbox"; // Update with the actual partition label
 
-       //print custom u-boot version
-       printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.2.1\n");
+    //print custom u-boot version
+    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.2.1\n");
 
+	//get mailbox partition as blk dev (mmc dev:part)
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
 	if (part < 0)
 		return 1;
@@ -88,61 +95,148 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 			argv[1], dev, part);
 		return 1;
 	}
-    ret = file_fat_read("boot_flag.txt", flag_str, sizeof(flag_str));
+
+
+	//read boot flag
+    ret = file_fat_read("boot_flag.txt", read_str, sizeof(read_str));
     if (ret >= 0) {
-        boot_flag = simple_strtoul(flag_str, NULL, 10);
-        ret = 0;
-	printf(" boot flag is : %lu\n\n", boot_flag);
-
-        if (boot_flag == 1) {
-            env_set("mmcdev", "2");
-            env_set("mmcpart", "1");
-            env_set("mmcroot", "2");
-	    //run_command("setenv mmcpart 1", 0);
-	    //run_command("setenv mmcroot 2;",0);
-	    printf("Booting Application1 ");
-        } else if (boot_flag == 2) {
-            //setenv("bootcmd", "run boot_b");
-            env_set("mmcdev", "2");    // boot from mmc disk amovible.
-            env_set("mmcpart", "3");
-            env_set("mmcroot", "5");
-	    //run_command("setenv mmcpart 3", 0);
-	    //run_command("setenv mmcroot 5;",0);
-	    printf("Booting Application2 ");
-        } else {
-            printf("Invalid boot flag value! Booting default.\n");
-            env_set("mmcdev", "2");
-            env_set("mmcpart", "1");
-            env_set("mmcroot", "2");
-	    //run_command("setenv mmcpart 1", 0);
-	    //run_command("setenv mmcroot 2;",0);
-	    printf("Booting Application1 ");
-        }
-
-    } else {
-        printf("Failed to read boot flag from mailbox partition\n");
-	ret = 0;
-            env_set("mmcdev", "2");
-            env_set("mmcpart", "1");
-            env_set("mmcroot", "2");
-	    //run_command("setenv mmcpart 1", 0);
-	    //run_command("setenv mmcroot 2;",0);
-	    printf("Booting Application1 ");
+        boot_flag = simple_strtoul(read_str, NULL, 10);
+		printf(" boot flag: %u\n", boot_flag);
+		if ( (boot_flag != 1) && (boot_flag != 2) )
+		{
+			printf(" Invalid boot flag value! %d\n\n", boot_flag);
+		}
+    }
+	else
+	{
+        printf(" Failed to read boot flag from mailbox partition\n\n"); //first run (os tools)
+        boot_flag = 1;
     }
 
+	//read last reboot counter
+	ret = file_fat_read("reboot_counter.txt", read_str, sizeof(read_str));
+	if (ret >= 0) {
+		temp_u = simple_strtoul(read_str, NULL, 16);		
+		reboot_counter_1 = temp_u & 0xFF; //first byte
+		reboot_counter_2 = (temp_u >> 8) & 0xFF; //second byte
+	}
+	else
+	{
+		printf(" Failed to read boot counter flag from mailbox partition\n");
+		reboot_counter_1 = 0;
+		reboot_counter_2 = 0;
+	}
 
+	//set reboot counter (check for possible corruption)
+	ret = file_fat_read("healthy_os", read_str, sizeof(read_str));
+	if (ret < 0) //file not existing
+	{
+		printf(" Failed to read health flag from mailbox partition\n");
+		if (boot_flag == 1)
+		{
+			reboot_counter_1++;
+			reboot_counter_1 &= 0xFF;
+		}
+		else if (boot_flag == 2)
+		{
+			reboot_counter_2++;
+			reboot_counter_2 &= 0xFF;
+		}		
+	}
+	else //OS re-started normally, reset error
+	{
+		printf(" health flag read ok from mailbox partition\n");
+		if (boot_flag == 1)
+		{
+			reboot_counter_1 = 0;
+		}
+		else if (boot_flag == 2)
+		{
+			reboot_counter_2 = 0;
+		}
+
+		//delete file for next reboot check
+		int result = fat_unlink("healthy_os");
+		if (result < 0)
+		{
+			printf(" Failed to delete file healthy_os\n");
+		}
+	}
+
+	//save reboot counter
+	temp_u = reboot_counter_1 + (reboot_counter_2 << 8);
+	snprintf(data_str, sizeof(data_str), "%04x", temp_u);
+	if (file_fat_write("reboot_counter.txt", (void*)data_str, 0,strlen(data_str), &size) != 0)
+	{
+		printf(" Failed to write file reboot_counter.txt to mailbox \n");
+	}
+
+	//select boot device
+	if ( (reboot_counter_1 <= REBOOT_MAX_ALLOWED_ON_PARTITION) && (reboot_counter_2 <= REBOOT_MAX_ALLOWED_ON_PARTITION) )
+	{
+		//no corruption
+		boot_os_id = boot_flag;
+	}
+	else if (reboot_counter_1 <= REBOOT_MAX_ALLOWED_ON_PARTITION) //corruption only on OS 2
+	{
+		boot_os_id = 1;
+	}
+	else if (reboot_counter_2 <= REBOOT_MAX_ALLOWED_ON_PARTITION) //corruption only on OS 1
+	{
+		boot_os_id = 2;
+	}
+	else //all of both corrupted
+	{
+		boot_os_id = 3; //will boot from SD
+		//TODO:check SD card content for security
+		//	   (rootFS partition [2]: var/os-version: "elynxo_FLASHER_C22-7932-")
+		env_set("mmcdev", "1");
+		env_set("mmcpart", "1");
+		env_set("mmcroot", "2");
+		printf(" Booting from SD card \n");
+
+	}
+
+	//save selected boot device
+	snprintf(data_str, sizeof(data_str), "%d", boot_os_id);
+	if (file_fat_write("boot_flag.txt", (void*)data_str, 0,strlen(data_str), &size) != 0)
+	{
+		printf("Failed to write file boot_flag.txt to mailbox \n");
+	}
+
+
+	//set boot device partitions (dev, part, root)
+	if (boot_os_id == 1)
+	{
+		env_set("mmcdev", "2");
+		env_set("mmcpart", "1");
+		env_set("mmcroot", "2");
+		printf(" Booting Application1 \n");
+    }
+	else if (boot_os_id == 2)
+	{
+		env_set("mmcdev", "2"); //emmc OS2
+		env_set("mmcpart", "3");
+		env_set("mmcroot", "5");
+		printf(" Booting Application2 \n");
+	}
+
+
+	//save
 	run_command("saveenv", 0);
-//	run_command("run bootcmd", 0);
 
+	ret = 0;
     return ret;
 }
 
 U_BOOT_CMD(
 	fatmailbox,	3,	1,	do_fat_mailbox,
-	"list files in a directory (default /)",
+	"check infos in mailbox partition and boot accordingly",
 	"<interface> [<dev[:part]>] \n"
 	"    - reads flag from 'dev' on 'interface' mailbox"
 );
+
+
 static int do_fat_fsinfo(struct cmd_tbl *cmdtp, int flag, int argc,
 			 char *const argv[])
 {
