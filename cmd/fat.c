@@ -16,6 +16,7 @@
 #include <asm/cache.h>
 #include <stdlib.h>
 #include <env.h>
+#include <ext4fs.h>
 
 int do_fat_size(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
@@ -64,7 +65,7 @@ U_BOOT_CMD(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
-#define REBOOT_MAX_ALLOWED_ON_PARTITION 1
+#define REBOOT_MAX_ALLOWED_ON_PARTITION 2
 
 static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		     char *const argv[])
@@ -82,7 +83,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct disk_partition info;
 
     //print custom u-boot version
-    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.2.1\n");
+    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.3.0\n");
 
 	//get mailbox partition as blk dev (mmc dev:part)
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
@@ -91,7 +92,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	dev = dev_desc->devnum;
 	if (fat_set_blk_dev(dev_desc, &info) != 0) {
-		printf("\n** Unable to use %s %d:%d for fatinfo **\n",
+		printf("\n Unable to use %s %d:%d\n",
 			argv[1], dev, part);
 		return 1;
 	}
@@ -175,40 +176,37 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	if ( (reboot_counter_1 <= REBOOT_MAX_ALLOWED_ON_PARTITION) && (reboot_counter_2 <= REBOOT_MAX_ALLOWED_ON_PARTITION) )
 	{
 		//no corruption
+		printf(" No corruption detected on EMMC\n");
 		boot_os_id = boot_flag;
 	}
 	else if (reboot_counter_1 <= REBOOT_MAX_ALLOWED_ON_PARTITION) //corruption only on OS 2
 	{
+		printf(" OS-2 corrupted\n");
 		boot_os_id = 1;
 	}
 	else if (reboot_counter_2 <= REBOOT_MAX_ALLOWED_ON_PARTITION) //corruption only on OS 1
 	{
+		printf(" OS-1 corrupted\n");
 		boot_os_id = 2;
 	}
 	else //all of both corrupted
 	{
+		printf(" All EMMC RootFS corrupted\n");
 		boot_os_id = 3; //will boot from SD
-		//TODO:check SD card content for security
-		//	   (rootFS partition [2]: var/os-version: "elynxo_FLASHER_C22-7932-")
-		env_set("mmcdev", "1");
-		env_set("mmcpart", "1");
-		env_set("mmcroot", "2");
-		printf(" Booting from SD card \n");
-
 	}
 
 	//save selected boot device
 	snprintf(data_str, sizeof(data_str), "%d", boot_os_id);
 	if (file_fat_write("boot_flag.txt", (void*)data_str, 0,strlen(data_str), &size) != 0)
 	{
-		printf("Failed to write file boot_flag.txt to mailbox \n");
+		printf(" Failed to write file boot_flag.txt to mailbox\n");
 	}
 
 
 	//set boot device partitions (dev, part, root)
 	if (boot_os_id == 1)
 	{
-		env_set("mmcdev", "2");
+		env_set("mmcdev", "2"); //emmc OS1
 		env_set("mmcpart", "1");
 		env_set("mmcroot", "2");
 		printf(" Booting Application1 \n");
@@ -220,13 +218,73 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		env_set("mmcroot", "5");
 		printf(" Booting Application2 \n");
 	}
+	else if (boot_os_id == 3)
+	{
+		//get rootFS from SD card (mmc 1:2)
+		// and check inside "var/os-version" file: "elynxo_FLASHER_C22-7932-"
+		part = blk_get_device_part_str("mmc", "1:2", &dev_desc, &info, 1);
+		if (part < 0)
+		{
+			printf(" No bootable SD card inserted\n");
+			goto fail;
+			return 1;
+		}
+		dev = dev_desc->devnum;
+		ext4fs_set_blk_dev(dev_desc, &info);
+		if (!ext4fs_mount(info.size))
+		{
+			printf("\n Unable to mount mmc 1:2 \n");
+			goto fail;
+			return 1;
+
+		}
+		
+		char f_contents[200];
+		loff_t off;
+		ret = ext4_read_file("var/os-version", f_contents, 0, sizeof(f_contents), &off);
+		f_contents[199] = '\0';
+		ext4fs_close();
+
+		if (ret >= 0)
+		{
+			//check content
+			char *p = strstr(f_contents, "elynxo_FLASHER_C22-7932-");
+			if(p) //signature found
+			{
+				env_set("mmcdev", "1"); //SD card
+				env_set("mmcpart", "1");
+				env_set("mmcroot", "2");
+				printf(" Booting from SD card \n");
+			}
+			else
+			{
+				printf("\n Wrong SD card inserted\n");
+				goto fail;
+				return 1;
+			}
+		}
+		else
+		{
+			printf("\n Can not check SD card contents\n");		
+			goto fail;
+			return 1;
+		}
+	}
 
 
 	//save
 	run_command("saveenv", 0);
 
-	ret = 0;
-    return ret;
+	printf("\n");
+    return 0;
+
+	//don't boot if failure in case of corruption
+	fail:
+		env_set("mmcdev", "");
+		env_set("mmcpart", "");
+		env_set("mmcroot", "");
+		return 1;
+
 }
 
 U_BOOT_CMD(
