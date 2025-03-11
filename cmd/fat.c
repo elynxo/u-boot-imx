@@ -65,7 +65,7 @@ U_BOOT_CMD(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
-#define REBOOT_MAX_ALLOWED_ON_PARTITION 2
+#define REBOOT_MAX_ALLOWED 2
 
 static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		     char *const argv[])
@@ -110,7 +110,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
     }
 	else
 	{
-        printf(" Failed to read boot flag from mailbox partition\n\n"); //first run (os tools)
+        printf(" Failed to read boot flag\n"); //first run (os tools)
         boot_flag = 1;
     }
 
@@ -123,7 +123,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 	else
 	{
-		printf(" Failed to read boot counter flag from mailbox partition\n");
+		printf(" Failed to read boot counter flag\n");
 		reboot_counter_1 = 0;
 		reboot_counter_2 = 0;
 	}
@@ -132,7 +132,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	ret = file_fat_read("healthy_os", read_str, sizeof(read_str));
 	if (ret < 0) //file not existing
 	{
-		printf(" Failed to read health flag from mailbox partition\n");
+		printf(" Failed to read health flag\n");
 		if (boot_flag == 1)
 		{
 			reboot_counter_1++;
@@ -146,7 +146,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 	else //OS re-started normally, reset error
 	{
-		printf(" health flag read ok from mailbox partition\n");
+		printf(" health flag read ok\n");
 		if (boot_flag == 1)
 		{
 			reboot_counter_1 = 0;
@@ -169,22 +169,22 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	snprintf(data_str, sizeof(data_str), "%04x", temp_u);
 	if (file_fat_write("reboot_counter.txt", (void*)data_str, 0,strlen(data_str), &size) != 0)
 	{
-		printf(" Failed to write file reboot_counter.txt to mailbox \n");
+		printf(" Failed to write file reboot_counter.txt\n");
 	}
 
 	//select boot device
-	if ( (reboot_counter_1 <= REBOOT_MAX_ALLOWED_ON_PARTITION) && (reboot_counter_2 <= REBOOT_MAX_ALLOWED_ON_PARTITION) )
+	if ( (reboot_counter_1 < REBOOT_MAX_ALLOWED) && (reboot_counter_2 < REBOOT_MAX_ALLOWED) )
 	{
 		//no corruption
 		printf(" No corruption detected on EMMC\n");
 		boot_os_id = boot_flag;
 	}
-	else if (reboot_counter_1 <= REBOOT_MAX_ALLOWED_ON_PARTITION) //corruption only on OS 2
+	else if (reboot_counter_1 < REBOOT_MAX_ALLOWED) //corruption only on OS 2
 	{
 		printf(" OS-2 corrupted\n");
 		boot_os_id = 1;
 	}
-	else if (reboot_counter_2 <= REBOOT_MAX_ALLOWED_ON_PARTITION) //corruption only on OS 1
+	else if (reboot_counter_2 < REBOOT_MAX_ALLOWED) //corruption only on OS 1
 	{
 		printf(" OS-1 corrupted\n");
 		boot_os_id = 2;
@@ -199,7 +199,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	snprintf(data_str, sizeof(data_str), "%d", boot_os_id);
 	if (file_fat_write("boot_flag.txt", (void*)data_str, 0,strlen(data_str), &size) != 0)
 	{
-		printf(" Failed to write file boot_flag.txt to mailbox\n");
+		printf(" Failed to write file boot_flag.txt\n");
 	}
 
 
