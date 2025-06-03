@@ -65,7 +65,7 @@ U_BOOT_CMD(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
-#define REBOOT_MAX_ALLOWED 2
+#define REBOOT_MAX_ALLOWED 3
 
 static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		     char *const argv[])
