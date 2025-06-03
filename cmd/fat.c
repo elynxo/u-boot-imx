@@ -83,7 +83,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct disk_partition info;
 
     //print custom u-boot version
-    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.3.0\n");
+    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.4.0\n");
 
 	//get mailbox partition as blk dev (mmc dev:part)
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
