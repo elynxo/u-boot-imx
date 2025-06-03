@@ -102,7 +102,7 @@
 			"echo WARN: Cannot load the DT; " \
 		"fi;\0 " \
 	"nfsroot=/nfs\0" \
-	"bootcmd=fatmailbox mmc 2:8;mmc dev ${mmcdev}; if mmc rescan; then env exists dofitboot || setenv dofitboot 0;run spiprobe; if run loadimage; then run mmcboot; fatmailbox mmc 2:8;else run netboot; fi;fi;\0" \
+	"bootcmd=gpio set 16;gpio set 25; fatmailbox mmc 2:8;mmc dev ${mmcdev}; if mmc rescan; then env exists dofitboot || setenv dofitboot 0;run spiprobe; if run loadimage; then run mmcboot; fatmailbox mmc 2:8;else run netboot; fi;fi;\0" \
 	"netargs=setenv bootargs ${mcore_clk} console=${console},${baudrate} root=/dev/nfs ip=${nfsip} " \
 		"nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
 	"net_load_bootenv=${get_cmd} ${bootenv_addr} ${bootenv}\0" \
