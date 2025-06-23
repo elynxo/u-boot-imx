@@ -82,6 +82,8 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 	unsigned int boot_counter;
+	unsigned int corrupted_part;
+	char log_fn[20];
 
     //print custom u-boot version
     printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.4.1\n");
@@ -210,21 +212,25 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	{
 		//no corruption
 		printf(" No corruption detected on EMMC\n");
+		corrupted_part = 0;
 		boot_os_id = boot_flag;
 	}
 	else if (reboot_counter_1 < REBOOT_MAX_ALLOWED) //corruption only on OS 2
 	{
 		printf(" OS-2 corrupted\n");
+		corrupted_part = 2;
 		boot_os_id = 1;
 	}
 	else if (reboot_counter_2 < REBOOT_MAX_ALLOWED) //corruption only on OS 1
 	{
 		printf(" OS-1 corrupted\n");
+		corrupted_part = 1;
 		boot_os_id = 2;
 	}
 	else //all of both corrupted
 	{
 		printf(" All EMMC RootFS corrupted\n");
+		corrupted_part = 3;
 		boot_os_id = 3; //will boot from SD
 	}
 
@@ -234,6 +240,69 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	{
 		printf(" Failed to write file boot_flag.txt\n");
 	}
+
+
+	//Log if there is corruption, on SD card
+	dev_desc = blk_get_dev("mmc", 1);
+	if (dev_desc && (dev_desc->type != DEV_TYPE_UNKNOWN))
+	{
+		//SD card present
+		if (part_get_info(dev_desc, 1, &info) == 0) //check for partition 1 found
+		{
+			if (fat_set_blk_dev(dev_desc, &info) == 0)
+			{
+				snprintf(log_fn, sizeof(log_fn), "BootOS_%06d", boot_counter);
+				switch(corrupted_part)
+				{
+					case 1:
+					{
+						const char *mess1 = "OS1 is corrupted, switched to boot on OS2";
+						if (file_fat_write(log_fn, (void*)mess1, 0,strlen(mess1), &size) != 0)
+						{
+							printf(" Failed to write %s\n", log_fn);
+						}
+					}
+					break;
+
+					case 2:
+					{
+						const char *mess2 = "OS2 is corrupted, switched to boot on OS1";
+						if (file_fat_write(log_fn, (void*)mess2, 0,strlen(mess2), &size) != 0)
+						{
+							printf(" Failed to write %s\n", log_fn);
+						}
+					}
+					break;
+
+					case 3:
+					{
+						const char *mess3 = "OS corruptions, waiting for an Elynxo SD Flasher to repair";
+						if (file_fat_write(log_fn, (void*)mess3, 0,strlen(mess3), &size) != 0)
+						{
+							printf(" Failed to write %s\n", log_fn);
+						}
+					}
+					break;
+
+					default:
+					break;
+				}
+			}
+			else
+			{
+				printf(" Unable to use partition 1 on SD\n");
+			}
+		}
+		else
+		{
+			printf(" No partition 1 on SD\n");
+		}
+	}
+	else
+	{
+		printf(" No SD card\n");
+	}
+
 
 
 	//set boot device partitions (dev, part, root)
