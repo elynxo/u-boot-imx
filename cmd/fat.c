@@ -81,9 +81,42 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
     int ret,dev,part;
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
+	unsigned int boot_counter;
 
     //print custom u-boot version
-    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.4.0\n");
+    printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.4.1\n");
+
+	//update boot counter
+	part = blk_get_device_part_str("mmc", "2:a", &dev_desc, &info, 1); //part10 of emmc (FactoryData)
+	if (part < 0) return 1;
+	dev = dev_desc->devnum;
+	if (fat_set_blk_dev(dev_desc, &info) != 0)
+	{
+		printf("\n Unable to use %s %d:%d\n","mmc", dev, part);
+		return 1;
+	}
+
+	if (file_fat_read("boot_counter", read_str, sizeof(read_str)) < 0)
+	{
+		//counter doesn't exist, first use, create it and set to 0
+		boot_counter = 1;
+		if (file_fat_write("boot_counter", (void*)"1", 0,1, &size) != 0)
+		{	
+			printf(" Failed to create file boot_counter\n");
+		}
+	}
+	else
+	{
+		//counter exists, increment counter
+		boot_counter = simple_strtoul(read_str, NULL, 10);
+		boot_counter++;
+		snprintf(data_str, sizeof(data_str), "%d", boot_counter);
+		if (file_fat_write("boot_counter", (void*)data_str, 0,strlen(data_str), &size) != 0)
+		{	
+			printf(" Failed to write file boot_counter\n");
+		}
+	}
+
 
 	//get mailbox partition as blk dev (mmc dev:part)
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
