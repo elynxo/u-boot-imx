@@ -102,7 +102,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	{
 		//counter doesn't exist, first use, create it and set to 0
 		boot_counter = 1;
-		if (file_fat_write("boot_counter", (void*)"1", 0,1, &size) != 0)
+		if (file_fat_write("boot_counter", (void*)"000001", 0,1, &size) != 0)
 		{	
 			printf(" Failed to create file boot_counter\n");
 		}
@@ -112,7 +112,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		//counter exists, increment counter
 		boot_counter = simple_strtoul(read_str, NULL, 10);
 		boot_counter++;
-		snprintf(data_str, sizeof(data_str), "%d", boot_counter);
+		snprintf(data_str, sizeof(data_str), "%06d", boot_counter);
 		if (file_fat_write("boot_counter", (void*)data_str, 0,strlen(data_str), &size) != 0)
 		{	
 			printf(" Failed to write file boot_counter\n");
