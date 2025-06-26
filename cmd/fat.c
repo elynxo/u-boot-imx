@@ -98,7 +98,8 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		return 1;
 	}
 
-	if (file_fat_read("boot_counter", read_str, sizeof(read_str)) < 0)
+	ret = file_fat_read("boot_counter", read_str, sizeof(read_str));
+	if ( ret < 0)
 	{
 		//counter doesn't exist, first use, create it and set to 0
 		boot_counter = 1;
@@ -110,6 +111,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	else
 	{
 		//counter exists, increment counter
+		read_str[ret] = '\0';
 		boot_counter = simple_strtoul(read_str, NULL, 10);
 		boot_counter++;
 		snprintf(data_str, sizeof(data_str), "%06d", boot_counter);
@@ -136,6 +138,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	//read boot flag
     ret = file_fat_read("boot_flag.txt", read_str, sizeof(read_str));
     if (ret >= 0) {
+		read_str[ret] = '\0';
         boot_flag = simple_strtoul(read_str, NULL, 10);
 		printf(" boot flag: %u\n", boot_flag);
 		if ( (boot_flag != 1) && (boot_flag != 2) )
@@ -152,6 +155,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	//read last reboot counter
 	ret = file_fat_read("reboot_counter.txt", read_str, sizeof(read_str));
 	if (ret >= 0) {
+		read_str[ret] = '\0';
 		temp_u = simple_strtoul(read_str, NULL, 16);		
 		reboot_counter_1 = temp_u & 0xFF; //first byte
 		reboot_counter_2 = (temp_u >> 8) & 0xFF; //second byte
