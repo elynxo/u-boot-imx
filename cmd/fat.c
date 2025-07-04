@@ -83,7 +83,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct disk_partition info;
 	unsigned int boot_counter;
 	unsigned int corrupted_part;
-	char log_fn[20];
+	char log_fn[30];
 
     //print custom u-boot version
     printf("\n\n Elynxo U-Boot Version: C22-1925-AA-002_1.4.1\n");
@@ -245,6 +245,43 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		printf(" Failed to write file boot_flag.txt\n");
 	}
 
+	//Log to /mailbox/BootOS_*.log
+	snprintf(log_fn, sizeof(log_fn), "BootOS_%06d.log", boot_counter);
+	switch(corrupted_part)
+	{
+		case 1:
+		{
+			const char *mess1 = "OS1 is corrupted, switched to boot on OS2";
+			if (file_fat_write(log_fn, (void*)mess1, 0,strlen(mess1), &size) != 0)
+			{
+				printf(" Failed to write %s\n", log_fn);
+			}
+		}
+		break;
+
+		case 2:
+		{
+			const char *mess2 = "OS2 is corrupted, switched to boot on OS1";
+			if (file_fat_write(log_fn, (void*)mess2, 0,strlen(mess2), &size) != 0)
+			{
+				printf(" Failed to write %s\n", log_fn);
+			}
+		}
+		break;
+
+		case 3:
+		{
+			const char *mess3 = "All EMMC RootFS corrupted";
+			if (file_fat_write(log_fn, (void*)mess3, 0,strlen(mess3), &size) != 0)
+			{
+				printf(" Failed to write %s\n", log_fn);
+			}
+		}
+		break;
+
+		default:
+		break;
+	}
 
 	//Log if there is corruption, on SD card
 	dev_desc = blk_get_dev("mmc", 1);
@@ -255,7 +292,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 		{
 			if (fat_set_blk_dev(dev_desc, &info) == 0)
 			{
-				snprintf(log_fn, sizeof(log_fn), "BootOS_%06d", boot_counter);
+				
 				switch(corrupted_part)
 				{
 					case 1:
@@ -294,7 +331,7 @@ static int do_fat_mailbox(struct cmd_tbl *cmdtp, int flag, int argc,
 			}
 			else
 			{
-				printf(" Unable to use partition 1 on SD\n");
+				printf(" Unable to use partition 1 on SD for Log\n");
 			}
 		}
 		else
